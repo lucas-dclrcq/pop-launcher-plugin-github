@@ -2,7 +2,7 @@
     name: "Github",
     description: "Lets you search and open a github repository via the Github Search API",
     bin: (
-        path: "github-pop-launcher-plugin",
+        path: "pop-launcher-plugin-github",
     ),
     icon: Name("icon-name-or-path"),
     // Optional
@@ -10,7 +10,8 @@
         isolate: true,
         persistent: false,
         no_sort: true,
-        regex: "^(gh|pr|repo)",
-        history: false,
+        regex: "^(gh )+",
+        help: "gh",
+        history: false
     )
 )

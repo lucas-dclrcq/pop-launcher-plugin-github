@@ -6,9 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pop-launcher = { git = "https://github.com/pop-os/launcher", version = "1.2.1"  }
+pop-launcher-toolkit=  {git = "https://github.com/pop-os/launcher"  }
 octocrab = "0.15"
+tokio-stream = "0.1.8"
+serde = { version = "1.0.137", feature = ["derive"] }
+ron = "0.7.0"
 
 [dependencies.tokio]
 version = "1.18.2"
-features = ["io-std"]
+features = ["io-std", "rt"]

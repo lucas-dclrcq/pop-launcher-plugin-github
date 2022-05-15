@@ -1,12 +1,15 @@
 use std::sync::Arc;
 use octocrab::Octocrab;
-use pop_launcher::*;
+use pop_launcher_toolkit::launcher;
+use pop_launcher_toolkit::launcher::{json_input_stream, Request};
+use pop_launcher_toolkit::plugins::{send, xdg_open};
+use tokio_stream::StreamExt;
+use model::GithubResult;
+use crate::config::PluginConfig;
+use crate::launcher::{async_stdin, async_stdout, PluginResponse, PluginSearchResult};
 
-pub struct GithubResult {
-    pub name: String,
-    pub description: String,
-    pub uri: String
-}
+mod model;
+mod config;
 
 pub struct SearchContext {
     pub out: tokio::io::Stdout,
@@ -16,10 +19,13 @@ pub struct SearchContext {
 
 impl Default for SearchContext {
     fn default() -> Self {
-        Self  {
+        let config = PluginConfig::load();
+        Self {
             out: async_stdout(),
             search_results: Vec::new(),
-            octocrab: octocrab::instance()
+            octocrab: Arc::new(Octocrab::builder()
+                .personal_token(config.personal_access_token).build()
+                                   .expect("Failed to build octocrab client")),
         }
     }
 }
@@ -27,34 +33,36 @@ impl Default for SearchContext {
 impl SearchContext {
     async fn activate(&mut self, id: u32) {
         if let Some(result) = self.search_results.get(id as usize) {
-            crate::xdg_open(&result.uri);
-            crate::send(&mut self.out, PluginResponse::Close).await;
+            xdg_open(&result.uri);
+            send(&mut self.out, PluginResponse::Close).await;
         }
-    }
-
-    async fn append(&mut self, id: u32, line: String) {
-
     }
 
     async fn search(&mut self, query: String) {
         self.search_results.clear();
 
-        if let Some(word) = query.split_ascii_whitespace().next() {
-            match word {
+        if let Some((command, query)) = query.split_once(' ') {
+            match command {
                 "gh" => {
-                    let page = self.octocrab.search()
-                        .repositories(query.to_string())
-                        .send()
-                        .await?;
+                    if query.len() > 4 {
 
-                    for repository in page {
-                        let github_result = GithubResult {
-                            name: repository.name,
-                            description: repository.description.unwrap_or_default(),
-                            uri: repository.html_url.map().unwrap_or_default(),
-                        };
-                        self.search_results.(github_result)
                     }
+                    let page = self.octocrab.search()
+                        .repositories(&query.to_string())
+                        .send()
+                        .await
+                        .unwrap();
+
+                    self.search_results = page.items.into_iter().map(GithubResult::from).collect();
+                    let results = self.search_results.iter()
+                        .enumerate()
+                        .map(|(idx, search_result)| search_result.into_plugin_response(idx));
+
+                    for search_result in results {
+                        send(&mut self.out, search_result).await;
+                    }
+
+                    send(&mut self.out, PluginResponse::Finished).await;
                 },
                 "pr" => {},
                 "repo" => {},
@@ -64,7 +72,8 @@ impl SearchContext {
     }
 }
 
-pub fn main() {
+#[tokio::main(flavor = "current_thread")]
+pub async fn main() {
     let mut app = SearchContext::default();
 
     let mut requests = json_input_stream(async_stdin());
@@ -77,7 +86,7 @@ pub fn main() {
                 Request::Exit => break,
                 _ => (),
             },
-            Err(why) => tracing::error!("malformed JSON input: {}", why),
+            Err(why) => eprintln!("malformed JSON input: {}", why),
         }
     }
 }
