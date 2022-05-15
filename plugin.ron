@@ -1,0 +1,16 @@
+(
+    name: "Github",
+    description: "Lets you search and open a github repository via the Github Search API",
+    bin: (
+        path: "github-pop-launcher-plugin",
+    ),
+    icon: Name("icon-name-or-path"),
+    // Optional
+    query: (
+        isolate: true,
+        persistent: false,
+        no_sort: true,
+        regex: "^(gh|pr|repo)",
+        history: false,
+    )
+)
